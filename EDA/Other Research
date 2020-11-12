@@ -1,0 +1,107 @@
+---
+title: "Team Assignment"
+author: "u1805379"
+date: "08/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, cache = TRUE)
+```
+
+## Exploring tidycovid package
+
+```{r chunk1, message=FALSE, warning=FALSE, include=FALSE}
+
+library(dplyr)
+library(tidyverse)
+library(remotes)
+library(lubridate)
+library(readxl)
+library(ggplot2)
+library(stringr)
+library(rio)
+library(tidyr)
+
+```
+
+
+
+```{r chunk 2}
+CovidData <- read.csv("tidycovid19.csv")
+CovidData$date = as.Date(parse_date_time(CovidData$date,orders=c("y","ym","ymd")))
+head(CovidData)
+```
+# This gets the data but the following sections split it into different 
+```{r chunk3}
+TidyData <- CovidData %>% group_by(country) %>% na.omit
+
+Countries <- import("Countries.xlsx", setclass = "tibble")
+Countries <- filter(Countries, country %in% TidyData$country)
+
+Urbanisation <- read.csv("urban_population_percent_of_total.csv")
+Urbanisation <- filter(Urbanisation, country %in% TidyData$country)
+Urbanisation <- transmute(Urbanisation, country, X2019)
+
+Youth <- read.csv("population_aged_20_39.csv")
+Youth <- filter(Youth, country %in% TidyData$country)
+Youth <- transmute(Youth, country, X2019)
+
+TidyData <- left_join(TidyData, Countries, by = "country")
+
+TidyData <- mutate(TidyData, country = factor(country), 
+                    continent = factor(continent))
+
+head(TidyData)
+
+```
+
+
+
+```{r chunk4}
+
+SelectData1 <- TidyData %>% summarize(death_rate = sum(deaths)/sum(confirmed),
+                                      life_expectancy = max(life_expectancy),
+                                      income = income)
+ggplot(SelectData1,
+       aes(x=life_expectancy, y= death_rate)) +
+       geom_point() +
+       facet_grid(~income)+
+       geom_text(label= SelectData1$country, 
+                 hjust= 0.5, 
+                 vjust= -0.5)
+```
+
+```{r chunk5}
+TidyData <- left_join(TidyData, Urbanisation, by = "country")
+TidyData <- mutate(TidyData, Urbanisation_rate = X2019)
+
+
+SelectData2 <- TidyData %>% summarize(death_rate = sum(deaths)/sum(confirmed),
+                                      life_expectancy = max(life_expectancy),
+                                      income = income,
+                                      Urbanisation_rate = max(Urbanisation_rate))
+ggplot(SelectData2,
+       aes(x=Urbanisation_rate, y= death_rate)) +
+       geom_point() +
+       geom_text(label= SelectData1$country, 
+                 hjust= 0.5, 
+                 vjust= -0.5)
+```
+
+```{r chunk6}
+
+TidyData <- left_join(TidyData, Youth, by = "country")
+TidyData <- mutate(TidyData, Youth_rate = X2019)
+
+SelectData3 <- TidyData %>% summarize(death_rate = sum(deaths)/sum(confirmed),
+                                      income = income,
+                                      Youth_rate = max(Youth_rate))
+ggplot(SelectData3,
+       aes(x=Youth_rate, y= death_rate)) +
+       geom_point() +
+       geom_text(label= SelectData1$country, 
+                 hjust= 0.5, 
+                 vjust= -0.5)
+```
+
